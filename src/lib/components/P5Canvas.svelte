@@ -6,6 +6,8 @@
 
     // Props that will be passed in from the parent component
     export let prompt: string;
+    export let colors: string[] = ["#000000", "#FFFFFF"]; // Default to black and white
+    export let sounds: string[] = [];
 
     let canvasContainer: HTMLDivElement;
     let p5Instance: p5;
@@ -18,13 +20,18 @@
                 canvasContainer,
             );
             console.log("P5Canvas mounted with prompt:", prompt);
+            console.log("Sounds to play:", sounds);
         };
 
         p.draw = () => {
-            // This is our "Living Canvas" drawing loop.
-            p.background(0); // Black background
+            // Use the first color from the prop for the background
+            p.background(colors[0] || "#000000");
             p.noStroke();
-            p.fill(255, 50); // Semi-transparent white
+
+            // Use the second color for the interactive circles
+            const fillColor = p.color(colors[1] || "#FFFFFF");
+            fillColor.setAlpha(50); // Add transparency
+            p.fill(fillColor);
 
             // Draw circles that follow the mouse for a simple interactive effect
             p.ellipse(p.mouseX, p.mouseY, 25, 25);
