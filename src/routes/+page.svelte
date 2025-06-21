@@ -106,7 +106,7 @@
                     type="text"
                     bind:value={prompt}
                     class="w-full max-w-2xl bg-transparent border-b-2 border-gray-600 text-xl md:text-2xl text-center text-gray-200 focus:outline-none focus:border-white transition-colors duration-300 p-2"
-                    placeholder="e.g., a calm rainy night in a cozy cyberpunk apartment"
+                    placeholder="e.g., a calm rainy night"
                     autofocus
                 />
             </form>
