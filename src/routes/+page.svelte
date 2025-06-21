@@ -1,4 +1,6 @@
 <script lang="ts">
+	import P5Canvas from '$lib/components/P5Canvas.svelte';
+
 	let prompt: string = '';
 	let submitted: boolean = false;
 
@@ -26,10 +28,9 @@
 			</form>
 		</div>
 	{:else}
-		<!-- This is where the generative "Living Canvas" will be rendered in the next step -->
-		<div class="w-full h-full flex items-center justify-center">
-			<p class="text-gray-400">Generating soundscape for: <span class="text-white">{prompt}</span></p>
-		</div>
+		<!-- When submitted, we render the P5Canvas and pass the prompt to it -->
+		<P5Canvas {prompt} />
+		<!-- We can also add other UI elements on top of the canvas here if needed -->
 	{/if}
 </main>
 
