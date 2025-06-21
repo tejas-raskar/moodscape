@@ -1,16 +1,42 @@
 <script lang="ts">
+    import { gsap } from "gsap";
     import P5Canvas from "$lib/components/P5Canvas.svelte";
     import AudioEngine from "$lib/components/AudioEngine.svelte";
+    import ImageBackground from "$lib/components/ImageBackground.svelte";
 
-    // --- State Management ---
-    // We use a 'scene' variable to control what is currently displayed to the user.
+    // --- Component State ---
     let scene: "input" | "loading" | "canvas" | "error" = "input";
-
     let prompt: string = "";
     let errorMessage: string = "";
-    let soundscapeData: { sounds: string[]; colors: string[] } | null = null;
+    let soundscapeData: {
+        imageBase64: string;
+        sounds: string[];
+        p5Code: string;
+    } | null = null;
 
-    // --- API Call ---
+    // --- Gesture State ---
+    let pressTimer: ReturnType<typeof setTimeout> | null = null;
+
+    // --- Svelte/GSAP Transition Functions ---
+    // These functions are used with the `in:` and `out:` directives to create
+    // smooth, interruption-free animations between scenes.
+
+    const fade = (node: HTMLElement, { duration = 0.5, delay = 0 }) => {
+        const initialOpacity = getComputedStyle(node).opacity;
+        return {
+            delay,
+            duration,
+            tick: (t: number) => {
+                // t is a value from 0 to 1, eased by Svelte.
+                node.style.opacity = (
+                    parseFloat(initialOpacity) * t
+                ).toString();
+            },
+        };
+    };
+
+    // --- Core Logic ---
+
     async function handleSubmit() {
         if (!prompt.trim()) return;
 
@@ -20,9 +46,7 @@
         try {
             const response = await fetch("/api/generate", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ prompt }),
             });
 
@@ -35,19 +59,34 @@
             soundscapeData = data;
             scene = "canvas";
         } catch (err: any) {
-            console.error("Failed to generate soundscape:", err);
+            console.error("[handleSubmit] Failed to generate soundscape:", err);
             errorMessage = err.message;
             scene = "error";
         }
     }
 
-    // --- Reset Function ---
-    // Allows the user to return to the initial input screen.
     function reset() {
         prompt = "";
+        soundscapeData = null;
         scene = "input";
         errorMessage = "";
-        soundscapeData = null;
+    }
+
+    function handlePressStart() {
+        if (pressTimer) clearTimeout(pressTimer);
+        pressTimer = setTimeout(() => {
+            if (scene === "canvas") {
+                console.log("Long press detected! Resetting scene.");
+                reset();
+            }
+        }, 1000); // 1-second duration
+    }
+
+    function handlePressEnd() {
+        if (pressTimer) {
+            clearTimeout(pressTimer);
+            pressTimer = null;
+        }
     }
 </script>
 
@@ -55,8 +94,9 @@
     class="h-screen w-screen bg-black text-white flex flex-col items-center justify-center font-serif p-4 overflow-hidden"
 >
     {#if scene === "input"}
-        <div
-            class="text-center transition-opacity duration-1000 w-full animate-fade-in"
+        <section
+            class="w-full h-full flex flex-col items-center justify-center text-center"
+            transition:fade={{ duration: 1 }}
         >
             <h1 class="text-4xl md:text-5xl mb-12">
                 Describe the world you want to hear.
@@ -66,30 +106,30 @@
                     type="text"
                     bind:value={prompt}
                     class="w-full max-w-2xl bg-transparent border-b-2 border-gray-600 text-xl md:text-2xl text-center text-gray-200 focus:outline-none focus:border-white transition-colors duration-300 p-2"
-                    placeholder="e.g., a fantasy battle in a dark forest"
+                    placeholder="e.g., a calm rainy night in a cozy cyberpunk apartment"
                     autofocus
                 />
             </form>
-        </div>
-    {:else if scene === "loading"}
-        <div class="text-center animate-fade-in">
-            <p class="text-2xl text-gray-400">Generating your world...</p>
-        </div>
-    {:else if scene === "canvas" && soundscapeData}
-        <P5Canvas
-            {prompt}
-            colors={soundscapeData.colors}
-            sounds={soundscapeData.sounds}
-        />
-        <AudioEngine sounds={soundscapeData.sounds} />
-        <button
-            on:click={reset}
-            class="absolute bottom-8 right-8 bg-white/10 backdrop-blur-md text-white font-sans py-2 px-4 rounded-lg hover:bg-white/20 transition-colors z-10"
+        </section>
+    {/if}
+
+    {#if scene === "loading"}
+        <section
+            class="w-full h-full flex flex-col items-center justify-center text-center"
+            transition:fade={{ duration: 0.5 }}
         >
-            Create New
-        </button>
-    {:else if scene === "error"}
-        <div class="text-center animate-fade-in">
+            <p class="text-2xl text-gray-400">Generating your world...</p>
+            <p class="text-sm text-gray-500 mt-4">
+                This may take up to 30 seconds.
+            </p>
+        </section>
+    {/if}
+
+    {#if scene === "error"}
+        <section
+            class="w-full h-full flex flex-col items-center justify-center text-center"
+            transition:fade={{ duration: 0.5 }}
+        >
             <h2 class="text-3xl text-red-500 mb-4">An Error Occurred</h2>
             <p class="text-gray-400 mb-8">{errorMessage}</p>
             <button
@@ -98,23 +138,25 @@
             >
                 Try Again
             </button>
-        </div>
+        </section>
+    {/if}
+
+    {#if scene === "canvas" && soundscapeData}
+        <section
+            class="w-full h-full absolute top-0 left-0 cursor-pointer"
+            on:mousedown={handlePressStart}
+            on:mouseup={handlePressEnd}
+            on:mouseleave={handlePressEnd}
+            on:touchstart|preventDefault={handlePressStart}
+            on:touchend={handlePressEnd}
+            role="button"
+            tabindex="0"
+            aria-label="Press and hold to create a new scene"
+            transition:fade={{ duration: 1.5, delay: 0.5 }}
+        >
+            <ImageBackground imageBase64={soundscapeData.imageBase64} />
+            <P5Canvas p5Code={soundscapeData.p5Code} />
+            <AudioEngine sounds={soundscapeData.sounds} />
+        </section>
     {/if}
 </main>
-
-<style>
-    @keyframes fade-in {
-        from {
-            opacity: 0;
-            transform: translateY(10px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-
-    .animate-fade-in {
-        animation: fade-in 1.5s ease-in-out forwards;
-    }
-</style>
